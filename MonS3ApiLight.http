@@ -1,6 +1,36 @@
-@MonS3ApiLight_HostAddress = http://localhost:5285
+@host = http://localhost:5285
 
-GET {{MonS3ApiLight_HostAddress}}/weatherforecast/
+### ---------------------------------------------------------
+### TEST: Get všechny adresy
+### ---------------------------------------------------------
+GET {{host}}/addresses
 Accept: application/json
 
-###
+
+### ---------------------------------------------------------
+### TEST: Get všechny objednávky (hlavièky)
+### ---------------------------------------------------------
+GET {{host}}/orders
+Accept: application/json
+
+
+### ---------------------------------------------------------
+### TEST: Get položky objednávky podle èísla dokladu
+### /orders/{doklad}/items
+### ---------------------------------------------------------
+GET {{host}}/orders/100001/items
+Accept: application/json
+
+
+### ---------------------------------------------------------
+### TEST: Get všechny položky všech objednávek
+### ---------------------------------------------------------
+GET {{host}}/lines
+Accept: application/json
+
+
+### ---------------------------------------------------------
+### TEST: Zdravotní kontrola API
+### ---------------------------------------------------------
+GET {{host}}/health
+Accept: text/plain
