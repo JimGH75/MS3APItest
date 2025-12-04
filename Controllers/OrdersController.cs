@@ -1,34 +1,38 @@
 using Microsoft.AspNetCore.Mvc;
 using MonS3ApiLight.Services;
+using System.Collections.Generic;
 
-namespace MonS3ApiLight.Controllers;
-
-[ApiController]
-[Route("api/orders")]
-public class OrdersController : ControllerBase
+namespace MonS3ApiLight.Controllers
 {
-    private readonly OrderService _orders;
-
-    public OrdersController(OrderService orders)
+    [ApiController]
+    [Route("[controller]")]
+    public class OrdersController : ControllerBase
     {
-        _orders = orders;
-    }
+        private readonly MonS3ReaderService _reader;
 
-    [HttpGet]
-    public IActionResult GetAll([FromQuery]string? linka)
-    {
-        var list = _orders.LoadOrders();
-        if (!string.IsNullOrWhiteSpace(linka))
-            list = list.Where(x => x.Linka.Equals(linka, StringComparison.OrdinalIgnoreCase));
+        public OrdersController(MonS3ReaderService reader)
+        {
+            _reader = reader;
+        }
 
-        return Ok(list);
-    }
+        /// <summary>
+        /// Získá všechny otevøené objednávky.
+        /// </summary>
+        /// <returns>Seznam objednávek</returns>
+        [HttpGet]
+        public IEnumerable<dynamic> GetOrders()
+        {
+            return _reader.LoadOrdersRaw();
+        }
 
-    [HttpGet("{cradku:long}")]
-    public IActionResult GetDetail(long cradku)
-    {
-        var o = _orders.LoadOrders().FirstOrDefault(x => x.CRadku == cradku);
-        if (o == null) return NotFound();
-        return Ok(o);
+        /// <summary>
+        /// Získá položky objednávek.
+        /// </summary>
+        /// <returns>Seznam položek</returns>
+        [HttpGet("items")]
+        public IEnumerable<dynamic> GetOrderItems()
+        {
+            return _reader.LoadItemsRaw();
+        }
     }
 }
