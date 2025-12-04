@@ -1,0 +1,108 @@
+﻿
+--------------- Informace ---------------
+MonS3API.dll a MonS3Reader.dll slouží k práci s datovými soubory MonS3 dle datového modelu. 
+Je nutné sledovat změny v datovém modelu a měnit zpracování dat podle něho. Utilita slouží pouze k rukám zkušených uživatelů. 
+Pokud vyloženě nepotřebujete přistupovat k datům, tak doporučuji použít XML přenosy, které lze použít i přes parametry příkazové řádky. XML přenosy také ošetří vazby mezi doklady apod.
+
+MonS3API.dll zcela nahrazuje původní COM object Mon2Kbde.dll, který bude po čase zakázán.
+MonS3Reader.dll slouží pouze pro čtení dat z databáze. Nejsou v ní podporovány funkce pro transakce: TransactionStart, TransactionCommit, TransactionRollback 
+a funkce: AddRow, UpdateRows, DeleteRows, DeleteAll.
+
+Tato dokumentace je pro C#, pro jiný programovací jazyk nalezněte jinou příručku.
+
+Kód byl vyvíjen a testován na .NET FrameWork 4.5.1.
+Je podporována verze 32bit i 64bit operačního systému a aplikace, včetně kombinací.
+
+Doporučuji přečíst tuto příručku. Některé věci nemusí být z testovací namespace MonS3APITest.cs zcela jasné.
+
+Komunikace se skládá z:
+1. Vaší aplikace (nebo testovací namespace MonS3APITest.cs)
+2. Namespace MonS3API.cs
+3. DLL knihovny MonS3API.dll nebo MonS3Reader.dll
+4. Složka s datovými soubory obsahující Program.s3db
+
+Soubor MonS3Reader.dll bude dostupný vždy v aktuální verzi v instalaci Money S3 a to ve složce Program Files (x86)\Common Files\Solitea\.
+
+Verzování:
+1. Namespace MonS3API.cs musí být stejné verze jako je MonS3API.dll / MonS3Reader.dll.
+2. Verze MonS3API.dll / MonS3Reader.dll musí být stejná nebo novější, než vyžadují databáze Program.s3db a Agenda.s3sb. Zpětná kompatibilita by měla být vždy zajištěná.
+Bude pravidelně docházet k upgrade MonS3API.dll / MonS3Reader.dll a je možné, že bude vyžadováno, abyste si aktualizovali MonS3API.cs.
+Doporučuji tedy nedělat v MonS3API.cs žádné změny, abyste si mohli vždy nahrát novou verzi.
+Dále je důležité se rozhodnout z těchto voleb:
+1. Budete používat vždy MonS3Reader.dll umístěné v instalaci Money S3. Nevýhodou je, že uživatel bude muset mít vždy nainstalovanou poslední verzi MoneyS3.
+2. Budete mít knihovnu MonS3API.dll / MonS3Reader.dll ve složce vaší aplikace. Nevýhodou je, že budete muset pravidelně aktualizovat MonS3API.dll / MonS3Reader.dll v instalaci vašeho produktu.
+
+Základní princip komunikace:
+1. Vytvoření základní instance:
+MonS3APIDataMain main = new MonS3APIDataMain();
+Jedna taková instance se připojí na jednu MonS3API.dll / MonS3Reader.dll knihovnu a k jedněm datům.
+Nedoporučuji využívat více instancí, pokud se připojuji ke stejným datům - mělo by to za následek výkonostní problémy.
+2. Připojení se k MonS3API.dll / MonS3Reader.dll pomocí funkce main.LoadDLL.
+Pokud chci použít MonS3Reader.dll z nainstalového Money, tak stačí zavolat funkci main.FindDLL(MonS3Reader), která vrátí cestu.
+Dále je pak povinné vyplnit název vaší aplikace, který se bude zobrazovat v logu a v příhlašovacím okně.
+3. Připojení se k datům pomocí funkce main.SetDataPath.
+Pokud chci najít defaultní cestu k datům, tak stačí zavolat funkce main.FindData.
+
+Dále je možné vytvářet instance dat pro:
+1. Práci se společnými daty programu main.GetProgramInstance.
+Doporučuji pro jedno vlákno využívat jednu instanci. Není potřeba v rámci jednoho vlákna vytvářet více instancí.
+2. Práci s daty agendy main.GetAgendaInstance.
+Doporučuji pro jednu agendu v jednom vlákně využívat jen jednu instanci. Pokud potřebuji přistupovat k více agendám najednou, tak pro každou agendu vytvořím instanci zvlášť.
+3. Pro práci s daty připojených dokumentů GetDokumentyInstance.
+Doporučení pro instance je stejné, jako pro práci s daty agendy.
+
+K datům je potřeba se vždy připojit pomocí funkce ConnectData.
+Předtím, než můžeme volat jakékoliv další funkce je potřeba se přihlásit k datům.
+
+
+Přihlášení se k datům:
+program.GetLoginInformation - vrátí informace o možnostech přihlášení - jestli vůbec se lze přihlásit a jak
+program.Login - přihlášení pomocí hashe, popřípadě prázdné heslo, pokud to přihlášení dovolí
+
+Pokud mám z historických důvodů heslo uložené, tak použiji funkci program.TranslatePassowrd, která vrátí hash.
+NIKDY NEUKLÁDEJTE HESLA, ale vždy tento hash.
+
+Pokud je potřeba, dá se využít přihlašovací dialog z Money main.LoginDialog, který vrátí hash v případě úspěšného přihlášení.
+
+Přihlášení se zavolá pouze jednou v libovolné instanci. Je jedno, jestli je to volané z vedlejšího nebo hlavního vlákna.
+
+
+Chyby:
+Jakákoliv vzniklá chyba je typu MonS3APIException.
+Pokud vám nevyhovují popisky chyb, lze je změnit pomocí eventy OnGetMessage.
+
+
+Práva:
+Každá agenda, tabulka, atd obsahuje informaci o právu podle přihlášeného uživatele.
+Pokud si právo nezkotrolujete, může dojít k exception typu "NoRights".
+V současné verzi MonS3API.dll jsou vždy plná práva, ale v další verzi to tak nebude.
+
+
+Nastavení:
+Každá instance společných dat a dat agendy má nastavení.
+SettingsLockTimeout - timeout pro práci s DB - doporučuji nastavit ještě před voláním ConnectData.
+SettingErrorIfColNotFound - ignorace neexistujících sloupečků - doporučuji zapnout jen pro debug, ale v ostré verzi nechat na false.
+
+
+Uvolňování prostředků:
+program.Logout - potřeba volat jen pokud se chce uživatel přehlásit, jinak je to zbytečné
+program/agenda.DisconnectData - zavolat pokaždé, co se přestane pracovat s daty, ale s tím, že se zase po čase používat budou (ConnectData).
+main.UnLoadDLL - v době, kdy už nebudu pracovat s daty - tímto se uvolní i všechny instance společných dat a všech agend vázající se k této instanci
+
+
+Transakce (nelze použít s knihovnou MonS3Reader):
+Doporučuji používat transakce v případě, že se budou opakovaně volat funkce:
+AddRow
+UpdateRows
+DeleteRows
+DeleteAll
+
+Pokud se zavolá jen jedna funkce a pak nic dalšího, tak není třeba transakce využívat.
+
+Transakce v současné chvíli fungují u tabulek v SQLite databázi, ale doporučuji již teď používat vždy.
+Transakci však držíme na co nejméně potřebnou dobu, protože jinak to bude blokovat jiné programy v práci.
+
+Funkce platné vždy na instanci společných dat nebo dat agendy:
+TransactionStart
+TransactionCommit
+TransactionRollback

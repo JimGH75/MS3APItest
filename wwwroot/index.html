@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="utf-8" />
+    <title>Rozvozy – Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="style.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+</head>
+
+<body>
+
+    <div id="header">
+        <h1>Rozvozní linky – Dashboard</h1>
+    </div>
+
+    <div id="main">
+
+        <!-- Levý panel – Linky + Objednávky -->
+        <div id="left-panel">
+
+            <h2>Linky – vytížení</h2>
+            <div id="lines-container"></div>
+
+            <h2>Objednávky podle linek</h2>
+            <div id="orders-container"></div>
+
+            <h2>Nezařazeno (bez linky)</h2>
+            <div id="unassigned-container"></div>
+
+        </div>
+
+        <!-- Pravý panel – detail objednávky -->
+        <div id="right-panel">
+            <h2>Detail objednávky</h2>
+            <div id="order-detail">
+                <p>Klikni na objednávku pro zobrazení detailu.</p>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

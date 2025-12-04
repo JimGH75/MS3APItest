@@ -1,0 +1,6 @@
+@MonS3ApiLight_HostAddress = http://localhost:5285
+
+GET {{MonS3ApiLight_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
