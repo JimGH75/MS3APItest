@@ -18,21 +18,13 @@ namespace MonS3ApiLight.Controllers
         /// <summary>
         /// Získá všechny otevøené objednávky.
         /// </summary>
-        /// <returns>Seznam objednávek</returns>
         [HttpGet]
-        public IEnumerable<dynamic> GetOrders()
-        {
-            return _reader.LoadOrdersRaw();
-        }
+        public IEnumerable<dynamic> GetOrders() => _reader.LoadOrdersRaw();
 
         /// <summary>
-        /// Získá položky objednávek.
+        /// Získá položky všech objednávek.
         /// </summary>
-        /// <returns>Seznam položek</returns>
         [HttpGet("items")]
-        public IEnumerable<dynamic> GetOrderItems()
-        {
-            return _reader.LoadItemsRaw();
-        }
+        public IEnumerable<dynamic> GetOrderItems() => _reader.LoadItemsRaw();
     }
 }

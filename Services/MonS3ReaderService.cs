@@ -18,24 +18,31 @@ public class MonS3ReaderService : IDisposable
 
     public void Init()
     {
-        string dll = string.IsNullOrWhiteSpace(_cfg.DllPath)
-            ? _main.FindDLL(MonS3APIDataMain.MonS3APIDLLType.MonS3Reader)
-            : _cfg.DllPath;
+        // 1) Najdeme nebo použijeme DLL
+        string dllPath =
+            string.IsNullOrWhiteSpace(_cfg.DllPath)
+                ? _main.FindDLL(MonS3APIDataMain.MonS3APIDLLType.MonS3Reader)
+                : _cfg.DllPath;
 
-        _main.LoadDLL(dll, "MonS3ApiLight");
-        _main.SetDataPath(_cfg.DataPath);
+        if (!_main.LoadDLL(dllPath, "MonS3ApiLight"))
+            throw new Exception("Nepodaøilo se naèíst knihovnu DLL: " + dllPath);
 
+        // 2) Nastavíme cestu k datùm – bez validace
+        if (!_main.SetDataPath(_cfg.DataPath))
+            throw new Exception("MonS3Reader odmítl cestu k datùm: " + _cfg.DataPath);
+
+        // 3) Instance programu
         _program = _main.GetProgramInstance();
-        _program.ConnectData();
 
-        if (!string.IsNullOrWhiteSpace(_cfg.Password))
+        // 4) Pøipojení k databázi
+        if (!_program.ConnectData())
+            throw new Exception("Nepodaøilo se pøipojit k Money S3 datùm.");
+
+        // 5) Login – nepøekládáme heslo, nepoužíváme hash
+        //    pouze pøesnì to, co je v configu (i prázdný string)
+        if (!_program.Login(_cfg.Password ?? ""))
         {
-            string hash = _program.TranslatePassword(_cfg.Password);
-            _program.Login(hash);
-        }
-        else
-        {
-            try { _program.Login(""); } catch { }
+            throw new Exception("Login selhal – nesprávné heslo nebo nedostateèná práva.");
         }
     }
 

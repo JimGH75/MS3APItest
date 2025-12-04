@@ -16,13 +16,9 @@ namespace MonS3ApiLight.Controllers
         }
 
         /// <summary>
-        /// Získá seznam adresáøových záznamù.
+        /// Získá seznam všech adres.
         /// </summary>
-        /// <returns>Seznam adres</returns>
         [HttpGet]
-        public IEnumerable<dynamic> GetAddresses()
-        {
-            return _reader.LoadAddressRaw();
-        }
+        public IEnumerable<dynamic> GetAddresses() => _reader.LoadAddressRaw();
     }
 }
