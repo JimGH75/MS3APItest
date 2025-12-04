@@ -16,35 +16,44 @@ public class MonS3ReaderService : IDisposable
         _main = new MonS3APIDataMain();
     }
 
+    /// <summary>
+    /// Inicializuje pøipojení k Money S3.
+    /// </summary>
     public void Init()
     {
-        // 1) Najdeme nebo použijeme DLL
-        string dllPath =
-            string.IsNullOrWhiteSpace(_cfg.DllPath)
-                ? _main.FindDLL(MonS3APIDataMain.MonS3APIDLLType.MonS3Reader)
-                : _cfg.DllPath;
+        string dllPath = string.IsNullOrWhiteSpace(_cfg.DllPath)
+            ? _main.FindDLL(MonS3APIDataMain.MonS3APIDLLType.MonS3Reader)
+            : _cfg.DllPath;
 
-        if (!_main.LoadDLL(dllPath, "MonS3ApiLight"))
-            throw new Exception("Nepodaøilo se naèíst knihovnu DLL: " + dllPath);
+        Console.WriteLine($"DLL path: {dllPath}");
+        Console.WriteLine($"Data path: {_cfg.DataPath}");
 
-        // 2) Nastavíme cestu k datùm – bez validace
-        if (!_main.SetDataPath(_cfg.DataPath))
-            throw new Exception("MonS3Reader odmítl cestu k datùm: " + _cfg.DataPath);
-
-        // 3) Instance programu
-        _program = _main.GetProgramInstance();
-
-        // 4) Pøipojení k databázi
-        if (!_program.ConnectData())
-            throw new Exception("Nepodaøilo se pøipojit k Money S3 datùm.");
-
-        // 5) Login – nepøekládáme heslo, nepoužíváme hash
-        //    pouze pøesnì to, co je v configu (i prázdný string)
-        if (!_program.Login(_cfg.Password ?? ""))
+        try
         {
-            throw new Exception("Login selhal – nesprávné heslo nebo nedostateèná práva.");
+            _main.LoadDLL(dllPath, "MonS3ApiLight");
+            Console.WriteLine("DLL naètena");
+
+            _main.SetDataPath(_cfg.DataPath);
+            Console.WriteLine("DataPath nastaven");
+
+            _program = _main.GetProgramInstance();
+            Console.WriteLine("Program instance vytvoøena");
+
+            bool connected = _program.ConnectData();
+            Console.WriteLine($"ConnectData result: {connected}");
+
+            bool loggedIn = _program.Login(_cfg.Password ?? "");
+            Console.WriteLine($"Login result: {loggedIn}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Chyba pøi inicializaci: " + ex.Message);
+            throw;
         }
     }
+
+
+
 
     public void Dispose()
     {
@@ -63,9 +72,9 @@ public class MonS3ReaderService : IDisposable
     {
         var what = new MonS3APIDataWhatList();
         what.AddAll();
-
         var where = new MonS3APIDataWhereList();
         var rows = _program.GetRows("AdresarF", what, where);
+
         while (rows.Next())
         {
             yield return new
