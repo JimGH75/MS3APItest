@@ -39,11 +39,29 @@ public class MonS3ReaderService : IDisposable
             _program = _main.GetProgramInstance();
             Console.WriteLine("Program instance vytvoøena");
 
-            bool connected = _program.ConnectData();
-            Console.WriteLine($"ConnectData result: {connected}");
+            // ConnectData vrací void, použij try/catch pro ovìøení
+            try
+            {
+                _program.ConnectData();
+                Console.WriteLine("ConnectData úspìšné.");
+            }
+            catch (MonS3APIException ex)
+            {
+                Console.WriteLine("Chyba pøi ConnectData: " + ex.Message);
+                throw;
+            }
 
-            bool loggedIn = _program.Login(_cfg.Password ?? "");
-            Console.WriteLine($"Login result: {loggedIn}");
+            // Pøihlášení - Login vrací bool jen v nìkterých verzích, ošetøeno try/catch
+            try
+            {
+                _program.Login(_cfg.Password ?? "");
+                Console.WriteLine("Login úspìšný.");
+            }
+            catch (MonS3APIException ex)
+            {
+                Console.WriteLine("Chyba pøi login: " + ex.Message);
+                throw;
+            }
         }
         catch (Exception ex)
         {
@@ -51,9 +69,6 @@ public class MonS3ReaderService : IDisposable
             throw;
         }
     }
-
-
-
 
     public void Dispose()
     {

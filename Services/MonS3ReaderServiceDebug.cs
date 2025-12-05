@@ -1,114 +1,197 @@
-﻿using MonS3API;
-using Microsoft.Extensions.Options;
-using MonS3ApiLight.Config;
+﻿using System;
+using System.Collections.Generic;
+using Microsoft.Extensions.Configuration;
+using MonS3API;
 
-namespace MonS3ApiLight.Services;
-
-public class MonS3ReaderServiceDebug : IDisposable
+namespace MonS3ApiLight.Services
 {
-    private readonly S3Config _cfg;
-    private MonS3APIDataMain _main;
-    private MonS3APIDataProgram _program;
-
-    public List<string> Log { get; private set; } = new List<string>();
-
-    public MonS3ReaderServiceDebug(IOptions<S3Config> cfg)
+    public class MonS3ReaderServiceDebug
     {
-        _cfg = cfg.Value;
-        _main = new MonS3APIDataMain();
-    }
+        private readonly string _dllPath;
+        private readonly string _dataPath;
+        private readonly string _password;
+        private readonly string _agendaExt;
 
-    public bool Init()
-    {
-        try
+        public List<string> Log { get; } = new List<string>();
+
+        // Konstruktor používající konfiguraci z appsettings.json
+        public MonS3ReaderServiceDebug(IConfiguration config)
         {
-            Log.Add("=== MonS3ReaderServiceDebug Init ===");
+            if (config == null) throw new ArgumentNullException(nameof(config));
 
-            // 1) Najdeme DLL
-            string dllPath = string.IsNullOrWhiteSpace(_cfg.DllPath)
-                ? _main.FindDLL(MonS3APIDataMain.MonS3APIDLLType.MonS3Reader)
-                : _cfg.DllPath;
-            Log.Add($"DLL Path: {dllPath}");
-
-            // 2) Načtení DLL
-            _main.LoadDLL(dllPath, "MonS3ApiLight");
-            Log.Add("DLL načtena.");
-
-            // 3) Nastavení datové cesty
-            _main.SetDataPath(_cfg.DataPath);
-            Log.Add($"DataPath nastaven: {_cfg.DataPath}");
-
-            // 4) Vytvoření instance programu
-            _program = _main.GetProgramInstance();
-            Log.Add("Instance programu vytvořena.");
-
-            // 5) Připojení k datům
-            _program.ConnectData();
-            Log.Add("ConnectData voláno.");
-
-            // 6) Login
-            _program.Login(_cfg.Password ?? "");
-            Log.Add("Login voláno.");
-
-            Log.Add("=== Inicializace dokončena ===");
-            return true;
+            _dllPath = config["S3:DllPath"] ?? throw new ArgumentException("DllPath není definován v konfiguraci");
+            _dataPath = config["S3:DataPath"] ?? throw new ArgumentException("DataPath není definován v konfiguraci");
+            _password = config["S3:Password"] ?? throw new ArgumentException("Password není definován v konfiguraci");
+            _agendaExt = config["S3:AgendaExt"] ?? throw new ArgumentException("AgendaExt není definován v konfiguraci");
         }
-        catch (Exception ex)
-        {
-            Log.Add($"Chyba při inicializaci: {ex.Message}");
-            return false;
-        }
-    }
 
-    public void Dispose()
-    {
-        try
-        {
-            _program?.DisconnectData();
-            Log.Add("DisconnectData voláno.");
-        }
-        catch (Exception ex)
-        {
-            Log.Add($"Chyba při Disconnect: {ex.Message}");
-        }
-        finally
-        {
-            _main?.UnLoadDLL();
-            Log.Add("DLL uvolněna.");
-        }
-    }
 
-    // Základní testovací metody
-    public IEnumerable<dynamic> TestLoadAddresses()
-    {
-        var what = new MonS3APIDataWhatList(); what.AddAll();
-        var where = new MonS3APIDataWhereList();
-
-        var rows = _program.GetRows("AdresarF", what, where);
-        while (rows.Next())
+        // =====================================================================
+        //  INIT
+        // =====================================================================
+        public bool Init()
         {
-            yield return new
+            Log.Clear();
+            try
             {
-                Cislo = rows.GetColByName("Cislo").AsInt,
-                Nazev = rows.GetColByName("Nazev").AsString
-            };
-        }
-    }
+                Log.Add("=== MonS3ReaderServiceDebug Init ===");
+                Log.Add($"DLL Path: {_dllPath}");
 
-    public IEnumerable<dynamic> TestLoadOrders()
-    {
-        var what = new MonS3APIDataWhatList(); what.AddAll();
-        var where = new MonS3APIDataWhereList();
-        where.AddWhere("Druh", MonS3APIDataWhereOperator.Equals, MonS3APIValue.CreateString("R"));
+                var main = new MonS3APIDataMain();
+                main.LoadDLL(_dllPath, "MonS3ApiLight");
+                main.SetDataPath(_dataPath);
 
-        var rows = _program.GetRows("ObjPrijHl", what, where);
-        while (rows.Next())
-        {
-            yield return new
+                Log.Add($"Root DataPath: {_dataPath}");
+
+                var program = main.GetProgramInstance();
+                program.ConnectData();
+                program.Login(program.TranslatePassword(_password));
+                program.DisconnectData();
+
+                // Výpis dostupných agend
+                var agendas = program.GetListAgend();
+                Log.Add("Dostupné agendy:");
+                foreach (var a in agendas)
+                    Log.Add($" - {a.Ext}");
+
+                // Najít agendu
+                var agendaItem = agendas.GetByExt(_agendaExt);
+                if (agendaItem == null)
+                {
+                    Log.Add($"Chyba: Agenda '{_agendaExt}' nenalezena v DataPath");
+                    main.UnLoadDLL();
+                    return false;
+                }
+
+                var agenda = main.GetAgendaInstance();
+                agenda.SetAgenda(_agendaExt);
+                agenda.ConnectData();
+
+                Log.Add("=== Inicializace OK ===");
+
+                agenda.DisconnectData();
+                main.UnLoadDLL();
+
+                return true;
+            }
+            catch (Exception ex)
             {
-                Doklad = rows.GetColByName("Doklad").AsString,
-                Celkem = rows.GetColByName("Celkem").AsDecimal
-            };
+                Log.Add($"Chyba při inicializaci: {ex.Message}");
+                return false;
+            }
         }
+
+
+        // =====================================================================
+        //  LOAD YEARS
+        // =====================================================================
+        public List<Dictionary<string, object>> TestGetYearList()
+        {
+            var results = new List<Dictionary<string, object>>();
+
+            try
+            {
+                var main = new MonS3APIDataMain();
+                main.LoadDLL(_dllPath, "MonS3ApiLight");
+                main.SetDataPath(_dataPath);
+
+                var agenda = main.GetAgendaInstance();
+                agenda.SetAgenda(_agendaExt);
+                agenda.ConnectData();
+
+                var yearList = agenda.GetYearList();
+
+                foreach (var y in yearList)
+                {
+                    results.Add(new Dictionary<string, object>
+                    {
+                        ["Year"] = y.Year,
+                        ["DateFrom"] = y.DateFrom,
+                        ["DateTo"] = y.DateTo,
+                        ["Ext"] = y.Ext
+                    });
+                }
+
+                agenda.DisconnectData();
+                main.UnLoadDLL();
+            }
+            catch (Exception ex)
+            {
+                Log.Add($"Chyba při načítání YearList: {ex.Message}");
+            }
+
+            return results;
+        }
+
+
+        // =====================================================================
+        //  LOAD ROWS – univerzální SELECT *
+        // =====================================================================
+        private List<Dictionary<string, object>> GetRows(string table)
+        {
+            var results = new List<Dictionary<string, object>>();
+
+            try
+            {
+                var main = new MonS3APIDataMain();
+                main.LoadDLL(_dllPath, "MonS3ApiLight");
+                main.SetDataPath(_dataPath);
+
+                var program = main.GetProgramInstance();
+                program.ConnectData();
+                program.Login(program.TranslatePassword(_password));
+                program.DisconnectData();
+
+                var agenda = main.GetAgendaInstance();
+                agenda.SetAgenda(_agendaExt);
+                agenda.ConnectData();
+
+                // Výběr všech sloupců
+                var what = new MonS3APIDataWhatList();
+                what.AddAll();
+                var where = new MonS3APIDataWhereList();
+
+                var rows = agenda.GetRows(table, what, where);
+
+                // **sloupce tabulky přes GetTableColumns → to je správně**
+                MonS3APITableColumnList columnList = program.GetTableColumns(table);
+
+                while (rows.Next())
+                {
+                    var entry = new Dictionary<string, object>();
+
+                    foreach (var col in columnList)
+                    {
+                        string name = col.Name;
+
+                        // správný způsob čtení hodnoty
+                        var v = rows.GetColByName(name);
+
+                        entry[name] = v.AsString; // vždy existuje
+                    }
+
+                    results.Add(entry);
+                }
+
+                agenda.DisconnectData();
+                main.UnLoadDLL();
+            }
+            catch (Exception ex)
+            {
+                Log.Add($"Chyba při načítání {table}: {ex.Message}");
+            }
+
+            return results;
+        }
+
+
+        // =====================================================================
+        //  PUBLIC TEST ENDPOINTS
+        // =====================================================================
+        public List<Dictionary<string, object>> TestLoadAddresses()
+            => GetRows("AdresarF");
+
+        public List<Dictionary<string, object>> TestLoadOrders()
+            => GetRows("Objednavky");
     }
 }

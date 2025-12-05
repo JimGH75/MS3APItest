@@ -12,6 +12,7 @@ builder.Services.Configure<MonS3ApiLight.Config.S3Config>(
     builder.Configuration.GetSection("MoneyS3")
 );
 builder.Services.AddSingleton<MonS3ReaderService>();
+builder.Services.AddSingleton<MonS3ReaderServiceDebug>(); // <- pøidáno
 builder.Services.AddSingleton<AddressService>();
 builder.Services.AddSingleton<OrderService>();
 
