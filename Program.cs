@@ -11,8 +11,12 @@ builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnC
 builder.Services.Configure<MonS3ApiLight.Config.S3Config>(
     builder.Configuration.GetSection("MoneyS3")
 );
+
+// DEBUG SLUŽBA JAKO SCOPED (každý request dostane novou instanci)
+builder.Services.AddScoped<MonS3ReaderServiceDebug>();
+
+// Hlavní služby
 builder.Services.AddSingleton<MonS3ReaderService>();
-builder.Services.AddSingleton<MonS3ReaderServiceDebug>(); // <- pøidáno
 builder.Services.AddSingleton<AddressService>();
 builder.Services.AddSingleton<OrderService>();
 
@@ -45,9 +49,21 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "MonS3ApiLight API V1");
-        c.RoutePrefix = string.Empty; // Swagger UI na root
+        c.RoutePrefix = string.Empty;
     });
 }
 
 app.MapControllers();
+
+// Testovací endpoint pøímo v Program.cs pro rychlé testování
+app.MapGet("/test", () =>
+{
+    return Results.Ok(new
+    {
+        message = "API bìží",
+        time = DateTime.Now,
+        version = "1.0"
+    });
+});
+
 app.Run();
